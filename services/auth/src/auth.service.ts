@@ -7,7 +7,18 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string | null;
+  mfaEnabled?: boolean;
 }
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export type LoginResult =
+  | { mfaRequired: false; user: AuthUser; tokens: TokenPair }
+  | { mfaRequired: true; challenge: string };
 
 @Injectable()
 export class AuthService {
@@ -29,18 +40,31 @@ export class AuthService {
     return { user, tokens };
   }
 
-  async login(email: string, password: string): Promise<{ user: AuthUser; tokens: TokenPair }> {
+  async login(email: string, password: string): Promise<LoginResult> {
     const normEmail = email.trim().toLowerCase();
-    const res = await this.db.query<{ id: string; email: string; full_name: string | null; password_hash: string }>(
-      'SELECT id, email, full_name, password_hash FROM users WHERE email = $1 AND deleted_at IS NULL',
+    const res = await this.db.query<{
+      id: string;
+      email: string;
+      full_name: string | null;
+      password_hash: string | null;
+      mfa_enabled: boolean;
+    }>(
+      'SELECT id, email, full_name, password_hash, mfa_enabled FROM users WHERE email = $1 AND deleted_at IS NULL',
       [normEmail],
     );
     if (!res.rowCount) throw new UnauthorizedException('Invalid credentials');
     const row = res.rows[0];
+    if (!row.password_hash) {
+      throw new UnauthorizedException('This account uses OAuth — sign in with your provider.');
+    }
     const ok = await argon2.verify(row.password_hash, password);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
     const user = this.toAuthUser(row);
-    return { user, tokens: this.issueTokens(user) };
+    if (row.mfa_enabled) {
+      const challenge = this.jwt.sign({ sub: user.id, typ: 'mfa_challenge' }, { expiresIn: '5m' });
+      return { mfaRequired: true, challenge };
+    }
+    return { mfaRequired: false, user, tokens: this.issueTokens(user) };
   }
 
   async refresh(refreshToken: string): Promise<TokenPair> {
@@ -56,19 +80,27 @@ export class AuthService {
   }
 
   async me(userId: string): Promise<AuthUser> {
-    const res = await this.db.query<{ id: string; email: string; full_name: string | null }>(
-      'SELECT id, email, full_name FROM users WHERE id = $1 AND deleted_at IS NULL',
+    const res = await this.db.query<{
+      id: string;
+      email: string;
+      full_name: string | null;
+      mfa_enabled: boolean;
+    }>(
+      'SELECT id, email, full_name, mfa_enabled FROM users WHERE id = $1 AND deleted_at IS NULL',
       [userId],
     );
     if (!res.rowCount) throw new UnauthorizedException();
-    return this.toAuthUser(res.rows[0]);
+    const r = res.rows[0];
+    return { id: r.id, email: r.email, fullName: r.full_name, mfaEnabled: r.mfa_enabled };
   }
 
-  private toAuthUser(row: { id: string; email: string; full_name: string | null }): AuthUser {
-    return { id: row.id, email: row.email, fullName: row.full_name };
+  /** Alias used by the OAuth flow; returns the user or 401s. */
+  meOrThrow(userId: string) {
+    return this.me(userId);
   }
 
-  private issueTokens(user: AuthUser): TokenPair {
+  /** Public so the OAuth and MFA services can issue session tokens. */
+  issueTokens(user: AuthUser): TokenPair {
     const accessTtl = parseInt(process.env.JWT_ACCESS_TTL_SEC || '900', 10);
     const refreshTtl = parseInt(process.env.JWT_REFRESH_TTL_SEC || '604800', 10);
     const access = this.jwt.sign(
@@ -81,10 +113,8 @@ export class AuthService {
     );
     return { accessToken: access, refreshToken: refresh, expiresIn: accessTtl };
   }
-}
 
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
+  private toAuthUser(row: { id: string; email: string; full_name: string | null }): AuthUser {
+    return { id: row.id, email: row.email, fullName: row.full_name };
+  }
 }

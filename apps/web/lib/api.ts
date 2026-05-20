@@ -110,4 +110,29 @@ export const api = {
   createCertification: (b: any) => req<any>('/profile/certifications', { method: 'POST', body: JSON.stringify(b) }),
   updateCertification: (id: string, b: any) => req<any>(`/profile/certifications/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
   deleteCertification: (id: string) => req<any>(`/profile/certifications/${id}`, { method: 'DELETE' }),
+
+  // OAuth (calls auth service directly)
+  listProviders: () =>
+    req<{ providers: { key: string; enabled: boolean }[] }>('/providers', {}, { base: `${AUTH_BASE}/auth/oauth`, auth: false }),
+  oauthStartUrl: (provider: string, redirectAfter?: string) =>
+    `${AUTH_BASE}/auth/oauth/${provider}/start${redirectAfter ? `?redirect=${encodeURIComponent(redirectAfter)}` : ''}`,
+  listIdentities: () => req<any[]>('/identities', {}, { base: `${AUTH_BASE}/auth/oauth` }),
+  unlinkIdentity: (provider: string) =>
+    req<any>(`/${provider}/unlink`, { method: 'POST' }, { base: `${AUTH_BASE}/auth/oauth` }),
+
+  // MFA
+  mfaEnrollStart: () =>
+    req<{ otpauthUrl: string; secret: string }>('/enroll/start', { method: 'POST' }, { base: `${AUTH_BASE}/auth/mfa` }),
+  mfaEnrollConfirm: (code: string) =>
+    req<{ ok: boolean; backupCodes: string[] }>('/enroll/confirm', {
+      method: 'POST', body: JSON.stringify({ code }),
+    }, { base: `${AUTH_BASE}/auth/mfa` }),
+  mfaDisable: (code: string) =>
+    req<any>('/disable', { method: 'POST', body: JSON.stringify({ code }) }, { base: `${AUTH_BASE}/auth/mfa` }),
+  mfaVerify: (challenge: string, code: string) =>
+    req<any>('/verify', { method: 'POST', body: JSON.stringify({ challenge, code }) }, { base: `${AUTH_BASE}/auth/mfa`, auth: false }),
+
+  // Me (GDPR)
+  exportMeUrl: () => `${API_BASE}/api/me/export`,
+  deleteMe: () => req<any>('/me/delete', { method: 'POST' }),
 };

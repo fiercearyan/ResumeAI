@@ -19,6 +19,8 @@ import { PreferencesController } from './preferences/preferences.controller';
 import { PreferencesService } from './preferences/preferences.service';
 import { ProfileController } from './profile/profile.controller';
 import { ProfileService } from './profile/profile.service';
+import { MeController } from './me/me.controller';
+import { MeService } from './me/me.service';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -32,6 +34,7 @@ import { HealthController } from './health.controller';
     ApplyController,
     PreferencesController,
     ProfileController,
+    MeController,
   ],
   providers: [
     PrismaService,
@@ -46,6 +49,7 @@ import { HealthController } from './health.controller';
     ApplyService,
     PreferencesService,
     ProfileService,
+    MeService,
   ],
 })
 export class AppModule {}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { OAuthButtons } from '@/components/oauth-buttons';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-store';
 
@@ -51,6 +52,9 @@ export default function SignupPage() {
             {error && <p className="text-sm text-danger">{error}</p>}
             <Button type="submit" disabled={busy} className="w-full">{busy ? 'Creating…' : 'Sign up'}</Button>
           </form>
+          <div className="pt-4">
+            <OAuthButtons redirect="/dashboard" />
+          </div>
           <p className="text-sm text-muted-fg pt-4">
             Already have an account? <Link className="text-primary underline" href="/login">Log in</Link>
           </p>

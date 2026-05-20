@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
-import { FileText, Briefcase, LayoutDashboard, LogOut, Moon, Sun, Send, Settings, User } from 'lucide-react';
+import { FileText, Briefcase, LayoutDashboard, LogOut, Moon, Sun, Send, Settings, User, KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { ProfileChip } from './profile-chip';
 
@@ -15,6 +15,7 @@ const nav = [
   { href: '/resumes', label: 'Resumes', icon: FileText },
   { href: '/jobs', label: 'Job descriptions', icon: Briefcase },
   { href: '/applications', label: 'Auto-apply', icon: Send },
+  { href: '/settings/account', label: 'Account & security', icon: KeyRound },
   { href: '/settings/preferences', label: 'Preferences', icon: Settings },
 ];
 

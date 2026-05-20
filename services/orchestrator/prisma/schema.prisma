@@ -15,19 +15,41 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  fullName     String?  @map("full_name")
-  plan         String   @default("free")
-  createdAt    DateTime @default(now()) @map("created_at")
-  deletedAt    DateTime? @map("deleted_at")
+  id                   String   @id @default(uuid()) @db.Uuid
+  email                String   @unique
+  passwordHash         String?  @map("password_hash")     // nullable: OAuth-only users have no password
+  fullName             String?  @map("full_name")
+  plan                 String   @default("free")
+  mfaEnabled           Boolean  @default(false) @map("mfa_enabled")
+  mfaSecretEnc         String?  @map("mfa_secret_enc")    // base32-encoded TOTP secret
+  mfaBackupCodesHash   Json?    @map("mfa_backup_codes_hash") // string[] of argon2 hashes
+  createdAt            DateTime @default(now()) @map("created_at")
+  deletedAt            DateTime? @map("deleted_at")
 
-  resumes        Resume[]
+  resumes         Resume[]
   jobDescriptions JobDescription[]
-  applications   Application[]
+  applications    Application[]
+  oauthIdentities OAuthIdentity[]
 
   @@map("users")
+}
+
+model OAuthIdentity {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  provider        String                                  // google | github | linkedin
+  providerUserId  String    @map("provider_user_id")      // sub / id from provider
+  email           String?                                 // email reported at link time
+  accessTokenEnc  String?   @map("access_token_enc")
+  refreshTokenEnc String?   @map("refresh_token_enc")
+  expiresAt       DateTime? @map("expires_at")
+  linkedAt        DateTime  @default(now()) @map("linked_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("oauth_identities")
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model Resume {
