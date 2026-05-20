@@ -128,6 +128,45 @@ model Application {
   @@index([userId])
 }
 
+model UserPreference {
+  userId              String   @id @map("user_id") @db.Uuid
+  // form-fill profile
+  firstName           String?  @map("first_name")
+  lastName            String?  @map("last_name")
+  phone               String?
+  city                String?
+  countryCode         String?  @map("country_code")
+  workAuth            String?  @map("work_auth")
+  needsSponsorship    Boolean? @map("needs_sponsorship")
+  linkedinUrl         String?  @map("linkedin_url")
+  githubUrl           String?  @map("github_url")
+  portfolioUrl        String?  @map("portfolio_url")
+  // auto-apply controls
+  autoApplyEnabled    Boolean  @default(false) @map("auto_apply_enabled")
+  defaultMode         String   @default("review") @map("default_mode") // review | auto
+  minAtsScore         Float    @default(80) @map("min_ats_score")
+  dailyApplyCap       Int      @default(5) @map("daily_apply_cap")
+  // free-text screening Q&A
+  questionBank        Json?    @map("question_bank")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("user_preferences")
+}
+
+model ApplyEvent {
+  id            BigInt   @id @default(autoincrement())
+  applicationId String   @map("application_id") @db.Uuid
+  step          String                                  // e.g. "open_page", "fill_form", "screenshot", "awaiting_user", "submitted"
+  ok            Boolean  @default(true)
+  message       String?  @db.Text
+  screenshotS3  String?  @map("screenshot_s3")
+  meta          Json?
+  at            DateTime @default(now())
+
+  @@map("apply_events")
+  @@index([applicationId, at])
+}
+
 model AuditLog {
   id           BigInt   @id @default(autoincrement())
   userId       String?  @map("user_id") @db.Uuid

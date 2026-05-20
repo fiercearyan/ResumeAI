@@ -66,4 +66,18 @@ export const api = {
     `${API_BASE}/api/optimize/${versionId}/download.${format}`,
   promoteVersion: (versionId: string) =>
     req<any>(`/optimize/${versionId}/promote`, { method: 'POST' }),
+
+  // apply
+  createApplication: (jdId: string, resumeVersionId: string, mode: 'review' | 'auto' = 'review') =>
+    req<any>('/apply', { method: 'POST', body: JSON.stringify({ jdId, resumeVersionId, mode }) }),
+  listApplications: (status?: string) =>
+    req<any[]>(`/apply${status ? `?status=${status}` : ''}`),
+  getApplication: (id: string) => req<any>(`/apply/${id}`),
+  approveApplication: (id: string) => req<any>(`/apply/${id}/approve`, { method: 'POST' }),
+  cancelApplication: (id: string) => req<any>(`/apply/${id}/cancel`, { method: 'POST' }),
+
+  // preferences
+  getPreferences: () => req<any>('/preferences'),
+  updatePreferences: (patch: any) =>
+    req<any>('/preferences', { method: 'PATCH', body: JSON.stringify(patch) }),
 };

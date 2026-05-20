@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScoreRing, SectionBar } from '@/components/score-ring';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Send } from 'lucide-react';
 
 const LABELS: Record<string, string> = {
   hard_skill: 'Hard-skill coverage',
@@ -27,9 +27,18 @@ export default function ScorePage() {
     mutationFn: () => api.runOptimize(q.data.resumeVersionId, q.data.jdId),
     onSuccess: (r) => router.push(`/optimize/${r.newVersionId}`),
   });
+  const prefs = useQuery({ queryKey: ['prefs'], queryFn: () => api.getPreferences().catch(() => null) });
+  const apply = useMutation({
+    mutationFn: () => api.createApplication(q.data.jdId, q.data.resumeVersionId, prefs.data?.defaultMode || 'review'),
+    onSuccess: (a) => router.push(`/applications/${a.id}`),
+  });
 
   if (q.isLoading || !q.data) return <div className="p-8">Loading score…</div>;
   const s = q.data;
+  const jdUrl: string | undefined = s.jd?.sourceUrl;
+  const isGreenhouse = jdUrl ? /(^|\.)greenhouse\.io$/.test(new URL(jdUrl).hostname) : false;
+  const meetsThreshold = prefs.data ? s.overall >= (prefs.data.minAtsScore ?? 80) : s.overall >= 80;
+  const applyEligible = isGreenhouse && meetsThreshold;
 
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-6">
@@ -103,6 +112,30 @@ export default function ScorePage() {
           <article className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
             {s.rationale}
           </article>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Send size={18} /> Apply with this resume</CardTitle>
+          <CardDescription>
+            Spins up a headless browser to fill the application form on your behalf.
+            {!isGreenhouse && jdUrl && ' Phase 3 supports Greenhouse postings only.'}
+            {!jdUrl && ' Add the JD via URL (not text) to enable apply.'}
+            {' '}Review mode (default) pauses before submit so you can verify the form fill in screenshots.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Button disabled={!applyEligible || apply.isPending} onClick={() => apply.mutate()}>
+            {apply.isPending
+              ? 'Queuing…'
+              : !isGreenhouse
+              ? 'Greenhouse only (Phase 3)'
+              : !meetsThreshold
+              ? `Below your min ATS threshold (${prefs.data?.minAtsScore ?? 80})`
+              : 'Apply with this resume'}
+          </Button>
+          {apply.isError && <p className="text-sm text-danger">{(apply.error as any)?.message}</p>}
         </CardContent>
       </Card>
 

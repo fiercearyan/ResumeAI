@@ -70,14 +70,17 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       S3_BUCKET_RESUMES: ${S3_BUCKET_RESUMES}
       S3_BUCKET_JDS: ${S3_BUCKET_JDS}
+      S3_BUCKET_APPLY: ${S3_BUCKET_APPLY}
     entrypoint: >
       /bin/sh -c "
       sleep 2;
       mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY;
       mc mb --ignore-existing local/$$S3_BUCKET_RESUMES;
       mc mb --ignore-existing local/$$S3_BUCKET_JDS;
+      mc mb --ignore-existing local/$$S3_BUCKET_APPLY;
       mc anonymous set download local/$$S3_BUCKET_RESUMES || true;
       mc anonymous set download local/$$S3_BUCKET_JDS || true;
+      mc anonymous set download local/$$S3_BUCKET_APPLY || true;
       echo 'MinIO buckets ready';
       "
 
@@ -86,6 +89,13 @@ services:
     ports:
       - "1025:1025"
       - "8025:8025"
+
+  mock-form:
+    image: nginx:alpine
+    volumes:
+      - ../../samples:/usr/share/nginx/html:ro
+    ports:
+      - "9100:80"
 
   auth:
     build:
@@ -169,6 +179,23 @@ services:
       - "8004:8004"
     volumes:
       - ../../services/ai-optimizer/app:/srv/app
+
+  auto-apply:
+    build:
+      context: ../..
+      dockerfile: services/auto-apply/Dockerfile
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    ports:
+      - "8005:8005"
+    volumes:
+      - ../../services/auto-apply/src:/app/src
 
   web:
     build:
