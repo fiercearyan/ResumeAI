@@ -11,11 +11,13 @@ import { JdsService } from './jds/jds.service';
 import { ScoreController } from './score/score.controller';
 import { ScoreService } from './score/score.service';
 import { ScoreGateway } from './score/score.gateway';
+import { OptimizeController } from './optimize/optimize.controller';
+import { OptimizeService } from './optimize/optimize.service';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })],
-  controllers: [HealthController, ResumesController, JdsController, ScoreController],
+  controllers: [HealthController, ResumesController, JdsController, ScoreController, OptimizeController],
   providers: [
     PrismaService,
     MongoService,
@@ -25,6 +27,7 @@ import { HealthController } from './health.controller';
     JdsService,
     ScoreService,
     ScoreGateway,
+    OptimizeService,
   ],
 })
 export class AppModule {}

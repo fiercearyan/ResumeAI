@@ -4,8 +4,8 @@ AI-powered resume scoring, optimization, and auto-apply SaaS.
 
 This repo is being built in 4 phases (see `/Users/aryansingh/.claude/plans/i-want-yo-to-jaunty-pudding.md`):
 
-- **Phase 1 (current):** Upload resume + paste/upload JD → ATS score with section breakdown, matched/missing skills, and a Claude-written rationale.
-- **Phase 2:** AI Resume Optimizer with diff viewer and hallucination guards.
+- **Phase 1:** Upload resume + paste/upload JD → ATS score with section breakdown, matched/missing skills, and a Claude-written rationale. ✓
+- **Phase 2 (current):** AI Resume Optimizer — rewrites Summary + top bullets with truth-check guards, surfaces evidenced skills, optimized PDF + .tex downloads, auto re-score, side-by-side diff viewer, version promotion. ✓ (see [PHASE2_STATUS.md](PHASE2_STATUS.md))
 - **Phase 3:** Auto-Apply to Greenhouse / Lever / LinkedIn / Indeed.
 - **Phase 4:** Hardening, OAuth/MFA, billing, Kafka, observability, Kubernetes.
 
@@ -48,6 +48,7 @@ services/orchestrator  # NestJS BFF + REST + WebSocket
 services/resume-parser # Python FastAPI — parses PDF/DOCX/LaTeX
 services/jd-parser     # Python FastAPI — parses URL/text/PDF/image
 services/ats-engine    # Python FastAPI — ATS scoring + Claude judge
+services/ai-optimizer  # Python FastAPI — planner → rewriter → truthcheck → patcher + PDF/LaTeX render
 shared/openapi         # REST contract
 shared/py-common       # shared Python utilities (skills, OCR helpers)
 infra/compose          # docker-compose dev stack

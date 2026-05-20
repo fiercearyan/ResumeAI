@@ -119,6 +119,8 @@ services:
         condition: service_healthy
       auth:
         condition: service_started
+      ai-optimizer:
+        condition: service_started
     ports:
       - "${ORCHESTRATOR_PORT}:${ORCHESTRATOR_PORT}"
     volumes:
@@ -157,6 +159,16 @@ services:
       - "8003:8003"
     volumes:
       - ../../services/ats-engine/app:/srv/app
+
+  ai-optimizer:
+    build:
+      context: ../../services/ai-optimizer
+      dockerfile: Dockerfile
+    env_file: ../../.env
+    ports:
+      - "8004:8004"
+    volumes:
+      - ../../services/ai-optimizer/app:/srv/app
 
   web:
     build:

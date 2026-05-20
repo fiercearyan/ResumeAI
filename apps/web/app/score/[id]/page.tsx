@@ -1,10 +1,12 @@
 'use client';
-import { useParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useParams, useRouter } from 'next/navigation';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScoreRing, SectionBar } from '@/components/score-ring';
+import { Sparkles } from 'lucide-react';
 
 const LABELS: Record<string, string> = {
   hard_skill: 'Hard-skill coverage',
@@ -19,7 +21,12 @@ const LABELS: Record<string, string> = {
 
 export default function ScorePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const q = useQuery({ queryKey: ['score', id], queryFn: () => api.getScore(id) });
+  const optimize = useMutation({
+    mutationFn: () => api.runOptimize(q.data.resumeVersionId, q.data.jdId),
+    onSuccess: (r) => router.push(`/optimize/${r.newVersionId}`),
+  });
 
   if (q.isLoading || !q.data) return <div className="p-8">Loading score…</div>;
   const s = q.data;
@@ -101,13 +108,19 @@ export default function ScorePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Optimize for this JD</CardTitle>
-          <CardDescription>One click rewrite — coming in Phase 2.</CardDescription>
+          <CardTitle className="flex items-center gap-2"><Sparkles size={18} /> Optimize for this JD</CardTitle>
+          <CardDescription>
+            Rewrites your Summary and top bullets to align with this JD's must-haves.
+            Truth-checked: no fabricated companies, dates, or numbers. Old vs new score is shown side-by-side.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <button className="px-4 py-2 rounded-md bg-muted text-muted-fg cursor-not-allowed text-sm">
-            Optimize (Phase 2)
-          </button>
+        <CardContent className="space-y-2">
+          <Button disabled={optimize.isPending} onClick={() => optimize.mutate()}>
+            {optimize.isPending ? 'Optimizing… (15–60s)' : 'Optimize resume'}
+          </Button>
+          {optimize.isError && (
+            <p className="text-sm text-danger">{(optimize.error as any)?.message}</p>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -57,4 +57,13 @@ export const api = {
   runScore: (resumeVersionId: string, jdId: string) =>
     req<any>('/score', { method: 'POST', body: JSON.stringify({ resumeVersionId, jdId }) }),
   getScore: (id: string) => req<any>(`/score/${id}`),
+
+  // optimize
+  runOptimize: (resumeVersionId: string, jdId: string) =>
+    req<any>('/optimize', { method: 'POST', body: JSON.stringify({ resumeVersionId, jdId }) }),
+  getOptimize: (versionId: string) => req<any>(`/optimize/${versionId}`),
+  downloadOptimizedUrl: (versionId: string, format: 'pdf' | 'tex') =>
+    `${API_BASE}/api/optimize/${versionId}/download.${format}`,
+  promoteVersion: (versionId: string) =>
+    req<any>(`/optimize/${versionId}/promote`, { method: 'POST' }),
 };
