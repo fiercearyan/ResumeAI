@@ -1,0 +1,28 @@
+Senior Backend Engineer — Distributed Systems
+ExampleCo · San Francisco / Remote
+
+About the role
+We're hiring a Senior Backend Engineer to join the Platform team. You'll own the event pipeline that powers personalization across our product. We process billions of events daily and need someone who deeply understands distributed systems and the trade-offs that come with them.
+
+What you'll do
+- Design and build high-throughput services in Go and Python
+- Operate a Kafka-based event pipeline; improve exactly-once semantics
+- Drive observability: OpenTelemetry, Grafana, SLO-based alerting
+- Mentor mid-level engineers and lead system design reviews
+- Partner with ML and Product teams on data contracts
+
+Must-haves
+- 6+ years of backend engineering experience
+- Strong Go or Python (preferably both)
+- Production experience with Kafka, PostgreSQL, and Kubernetes
+- Track record running services at scale on AWS or GCP
+- Hands-on experience with distributed-systems patterns: outbox, idempotency, retries, CAP trade-offs
+
+Nice-to-haves
+- Experience with Debezium, ClickHouse, or Flink
+- Built or operated CDC pipelines
+- Familiarity with OpenTelemetry instrumentation
+- Past tech-lead or mentorship experience
+
+Tech stack
+Go, Python, TypeScript (frontend), Kafka, PostgreSQL, Redis, ClickHouse, Kubernetes, EKS, Terraform, ArgoCD, OpenTelemetry, Grafana, Sentry, AWS.

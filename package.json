@@ -1,0 +1,20 @@
+{
+  "name": "resumeai",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ResumeAI — AI-powered resume scoring, optimization, and auto-apply",
+  "workspaces": [
+    "apps/*",
+    "services/auth",
+    "services/orchestrator"
+  ],
+  "scripts": {
+    "dev:web": "npm --prefix apps/web run dev",
+    "dev:auth": "npm --prefix services/auth run start:dev",
+    "dev:orchestrator": "npm --prefix services/orchestrator run start:dev",
+    "build": "npm --prefix services/auth run build && npm --prefix services/orchestrator run build && npm --prefix apps/web run build"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

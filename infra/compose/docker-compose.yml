@@ -1,0 +1,180 @@
+name: resumeai
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    ports:
+      # Exposed at 27018 on the host to avoid clashes with any local Mongo on 27017.
+      # Services connect via the internal docker network at mongo:27017.
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping').ok", "--quiet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_BUCKET_RESUMES: ${S3_BUCKET_RESUMES}
+      S3_BUCKET_JDS: ${S3_BUCKET_JDS}
+    entrypoint: >
+      /bin/sh -c "
+      sleep 2;
+      mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY;
+      mc mb --ignore-existing local/$$S3_BUCKET_RESUMES;
+      mc mb --ignore-existing local/$$S3_BUCKET_JDS;
+      mc anonymous set download local/$$S3_BUCKET_RESUMES || true;
+      mc anonymous set download local/$$S3_BUCKET_JDS || true;
+      echo 'MinIO buckets ready';
+      "
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  auth:
+    build:
+      context: ../..
+      dockerfile: services/auth/Dockerfile
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${AUTH_PORT}:${AUTH_PORT}"
+    volumes:
+      - ../../services/auth/src:/app/src
+      - ../../services/auth/prisma:/app/prisma
+
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      auth:
+        condition: service_started
+    ports:
+      - "${ORCHESTRATOR_PORT}:${ORCHESTRATOR_PORT}"
+    volumes:
+      - ../../services/orchestrator/src:/app/src
+      - ../../services/orchestrator/prisma:/app/prisma
+
+  resume-parser:
+    build:
+      context: ../../services/resume-parser
+      dockerfile: Dockerfile
+    env_file: ../../.env
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../../services/resume-parser/app:/srv/app
+
+  jd-parser:
+    build:
+      context: ../../services/jd-parser
+      dockerfile: Dockerfile
+    env_file: ../../.env
+    ports:
+      - "8002:8002"
+    volumes:
+      - ../../services/jd-parser/app:/srv/app
+
+  ats-engine:
+    build:
+      context: ../../services/ats-engine
+      dockerfile: Dockerfile
+    env_file: ../../.env
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8003:8003"
+    volumes:
+      - ../../services/ats-engine/app:/srv/app
+
+  web:
+    build:
+      context: ../../apps/web
+      dockerfile: Dockerfile
+    env_file: ../../.env
+    depends_on:
+      - orchestrator
+    ports:
+      - "${WEB_PORT}:3000"
+    volumes:
+      - ../../apps/web/app:/app/app
+      - ../../apps/web/components:/app/components
+      - ../../apps/web/lib:/app/lib
+      - ../../apps/web/public:/app/public
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongo_data:
+  minio_data:
