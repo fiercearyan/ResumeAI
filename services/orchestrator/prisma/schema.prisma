@@ -167,6 +167,97 @@ model ApplyEvent {
   @@index([applicationId, at])
 }
 
+// ----- Profile system (Phase 3.5) ----------------------------------------
+
+model Profile {
+  userId           String   @id @map("user_id") @db.Uuid
+  fullName         String?  @map("full_name")
+  phone            String?
+  currentLocation  String?  @map("current_location")
+  linkedinUrl      String?  @map("linkedin_url")
+  githubUrl        String?  @map("github_url")
+  portfolioUrl     String?  @map("portfolio_url")
+  jobTitle         String?  @map("job_title")
+  summary          String?
+  languages        Json     @default("[]")  // string[]
+  achievements     String?
+  primaryResumeId  String?  @map("primary_resume_id") @db.Uuid
+  completionPct    Int      @default(0) @map("completion_pct")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("profiles")
+}
+
+model ProfileExperience {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  company          String
+  role             String
+  startDate        String?  @map("start_date")
+  endDate          String?  @map("end_date")
+  responsibilities String?  @db.Text
+  techStack        Json     @default("[]") @map("tech_stack")
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("profile_experiences")
+  @@index([userId, sortOrder])
+}
+
+model ProfileEducation {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  college     String
+  degree      String?
+  branch      String?
+  startYear   String?  @map("start_year")
+  endYear     String?  @map("end_year")
+  gpa         String?
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("profile_education")
+  @@index([userId, sortOrder])
+}
+
+model ProfileProject {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  name        String
+  description String?  @db.Text
+  techStack   Json     @default("[]") @map("tech_stack")
+  githubUrl   String?  @map("github_url")
+  liveUrl     String?  @map("live_url")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("profile_projects")
+  @@index([userId, sortOrder])
+}
+
+model ProfileSkill {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  name      String
+  category  String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("profile_skills")
+  @@unique([userId, name])
+}
+
+model ProfileCertification {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  name          String
+  issuer        String?
+  issuedDate    String?  @map("issued_date")
+  credentialUrl String?  @map("credential_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("profile_certifications")
+}
+
 model AuditLog {
   id           BigInt   @id @default(autoincrement())
   userId       String?  @map("user_id") @db.Uuid

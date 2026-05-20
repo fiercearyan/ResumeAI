@@ -60,15 +60,18 @@ export const greenhouse: ApplyDriver = {
     // Some templates use named fields.
     await fillIfPresent(formRoot, 'input[name="job_application[answers_attributes][0][text_value]"]', profile.linkedinUrl);
 
-    // Common Greenhouse "custom field" inputs: any text input with label "LinkedIn".
     await fillByLabel(formRoot, /linkedin/i, profile.linkedinUrl);
     await fillByLabel(formRoot, /github/i, profile.githubUrl);
     await fillByLabel(formRoot, /portfolio|website/i, profile.portfolioUrl);
-    await fillByLabel(formRoot, /city|location/i, profile.city);
 
-    // Resume upload — Greenhouse uses #resume or a [type=file] under #resume_fieldset.
+    // Location/City: Greenhouse's standard "Location (City)" field uses a
+    // Google-Places-autocomplete input. Type the value and pick the first option.
+    await fillLocation(formRoot, profile.city);
+
+    // Resume upload — real Greenhouse postings often use a hidden file input
+    // under a styled "Attach" button. Match all common shapes.
     const fileInput = formRoot.locator(
-      'input#resume[type="file"], #resume_fieldset input[type="file"], input[type="file"][name*="resume" i]',
+      'input[type="file"]#resume, #resume_fieldset input[type="file"], input[type="file"][name*="resume" i], input[type="file"]',
     ).first();
     if (await fileInput.count()) {
       try {
@@ -87,6 +90,20 @@ export const greenhouse: ApplyDriver = {
       await ctx.event('captcha_detected', { ok: false, message: 'Captcha challenge — review mode required.' });
     }
 
+    // Detect required fields the driver cannot autofill (Education dropdowns,
+    // custom select questions, etc.). Surface them so the user knows manual
+    // intervention is needed BEFORE clicking Approve & submit.
+    const unfilled = await listUnfilledRequired(formRoot);
+    if (unfilled.length) {
+      await ctx.event('unfilled_required_fields', {
+        ok: false,
+        message:
+          `${unfilled.length} required field${unfilled.length === 1 ? '' : 's'} not autofilled: ${unfilled.slice(0, 8).join(' · ')}` +
+          ` — fill them manually before approving submit, or this application will fail validation.`,
+        meta: { fields: unfilled },
+      });
+    }
+
     await ctx.screenshot('after_fill', { fullPage: true });
   },
 
@@ -100,16 +117,37 @@ export const greenhouse: ApplyDriver = {
     }
     await submit.scrollIntoViewIfNeeded({ timeout: 5_000 }).catch(() => {});
     await ctx.screenshot('before_submit');
+
+    const beforeUrl = page.url();
     await submit.click({ timeout: 15_000 });
 
-    // Wait for a confirmation marker.
-    await page
-      .waitForSelector(
-        ':text("thank you for applying"), :text("application received"), :text("submitted"), :text("we received your application")',
-        { timeout: 20_000 },
-      )
-      .catch(() => {});
+    // Race four outcomes: confirmation text, URL change, validation error, or timeout.
+    const CONFIRMATION_SELECTOR = ':text-matches("thank you for applying|application received|application has been received|we have received your application|application submitted", "i")';
+    const VALIDATION_SELECTOR = '.field--error, .error, [aria-invalid="true"], :text-matches("is required|please enter|please select", "i")';
+
+    const outcome = await Promise.race([
+      page.waitForSelector(CONFIRMATION_SELECTOR, { timeout: 25_000, state: 'visible' }).then(() => 'confirmed').catch(() => null),
+      page.waitForURL((u) => u.toString() !== beforeUrl, { timeout: 25_000 }).then(() => 'url_changed').catch(() => null),
+      page.waitForSelector(VALIDATION_SELECTOR, { timeout: 25_000, state: 'visible' }).then(() => 'validation_error').catch(() => null),
+      new Promise<string>((r) => setTimeout(() => r('timeout'), 26_000)),
+    ]);
+
     await ctx.screenshot('after_submit', { fullPage: true });
+
+    if (outcome === 'validation_error') {
+      // Collect visible validation messages to surface to the user.
+      const errors = await page
+        .locator('.field--error, .error, [aria-invalid="true"]')
+        .allInnerTexts()
+        .catch(() => [] as string[]);
+      const dedup = Array.from(new Set(errors.map((e) => e.trim()).filter(Boolean))).slice(0, 8);
+      throw new Error(
+        `Form not submitted — validation errors: ${dedup.join(' · ') || 'unspecified required fields missing'}`,
+      );
+    }
+    if (outcome === 'timeout') {
+      throw new Error('Submission did not confirm in 26s — page likely needs manual review.');
+    }
 
     const confirmation = await page.textContent('body').then((t) => (t || '').slice(0, 2000)).catch(() => '');
     return { confirmationText: confirmation };
@@ -129,7 +167,6 @@ async function fillIfPresent(page: any, selector: string, value?: string | null)
 
 async function fillByLabel(page: any, labelMatch: RegExp, value?: string | null) {
   if (!value) return;
-  // Find a <label> whose text matches, then look at its `for=` or the next input.
   try {
     const labels = page.locator('label');
     const count = await labels.count();
@@ -147,5 +184,70 @@ async function fillByLabel(page: any, labelMatch: RegExp, value?: string | null)
     }
   } catch {
     /* ignore */
+  }
+}
+
+async function fillLocation(page: any, city?: string | null) {
+  if (!city) return;
+  // Greenhouse's "Location (City)" is a Google-Places autocomplete.
+  // Find the input via label text → type → wait for the dropdown → press Enter.
+  try {
+    const labels = page.locator('label');
+    const count = await labels.count();
+    for (let i = 0; i < count; i++) {
+      const text = (await labels.nth(i).innerText().catch(() => '')) || '';
+      if (!/location|city/i.test(text)) continue;
+      const forAttr = await labels.nth(i).getAttribute('for');
+      if (!forAttr) continue;
+      const input = page.locator(`#${forAttr}`).first();
+      if (!(await input.count())) continue;
+      await input.click({ timeout: 3_000 }).catch(() => {});
+      await input.fill('', { timeout: 2_000 }).catch(() => {});
+      await input.type(city, { delay: 80 });
+      // Give Places time to return predictions, then arrow-down + Enter to pick first.
+      await page.waitForTimeout(1500);
+      await page.keyboard.press('ArrowDown').catch(() => {});
+      await page.keyboard.press('Enter').catch(() => {});
+      return;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+async function listUnfilledRequired(page: any): Promise<string[]> {
+  // A required text/select input is considered "unfilled" if it has the
+  // `required` attribute (or aria-required) AND its value is empty.
+  try {
+    return await page.evaluate(() => {
+      const out: string[] = [];
+      const inputs = Array.from(document.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        'input, select, textarea',
+      ));
+      for (const el of inputs) {
+        if (el.type === 'hidden' || el.type === 'submit' || el.type === 'button') continue;
+        const req = el.hasAttribute('required') || el.getAttribute('aria-required') === 'true';
+        if (!req) continue;
+        const v = (el as any).value;
+        if (v && String(v).trim().length > 0) continue;
+        // Label lookup.
+        const id = el.id;
+        let label = '';
+        if (id) {
+          const l = document.querySelector(`label[for="${id}"]`);
+          if (l) label = (l.textContent || '').trim();
+        }
+        if (!label) {
+          const parentLabel = el.closest('label');
+          if (parentLabel) label = (parentLabel.textContent || '').trim();
+        }
+        if (!label) label = el.getAttribute('name') || el.getAttribute('id') || el.tagName.toLowerCase();
+        out.push(label.replace(/\s*\*\s*$/, '').replace(/\s+/g, ' ').slice(0, 60));
+      }
+      // Dedupe while preserving order.
+      return Array.from(new Set(out));
+    });
+  } catch {
+    return [];
   }
 }

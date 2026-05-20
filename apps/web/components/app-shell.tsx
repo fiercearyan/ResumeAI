@@ -5,11 +5,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
-import { FileText, Briefcase, LayoutDashboard, LogOut, Moon, Sun, Send, Settings } from 'lucide-react';
+import { FileText, Briefcase, LayoutDashboard, LogOut, Moon, Sun, Send, Settings, User } from 'lucide-react';
 import { useState } from 'react';
+import { ProfileChip } from './profile-chip';
 
 const nav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/profile', label: 'Profile', icon: User },
   { href: '/resumes', label: 'Resumes', icon: FileText },
   { href: '/jobs', label: 'Job descriptions', icon: Briefcase },
   { href: '/applications', label: 'Auto-apply', icon: Send },
@@ -78,7 +80,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="flex-1 min-w-0">{children}</main>
+      <main className="flex-1 min-w-0 flex flex-col">
+        <header className="flex items-center justify-end gap-2 px-6 py-3 border-b bg-bg/80 backdrop-blur sticky top-0 z-10">
+          <ProfileChip />
+        </header>
+        <div className="flex-1 min-w-0">{children}</div>
+      </main>
     </div>
   );
 }

@@ -80,4 +80,34 @@ export const api = {
   getPreferences: () => req<any>('/preferences'),
   updatePreferences: (patch: any) =>
     req<any>('/preferences', { method: 'PATCH', body: JSON.stringify(patch) }),
+
+  // profile
+  getProfile: () => req<any>('/profile'),
+  patchProfile: (b: any) => req<any>('/profile', { method: 'PATCH', body: JSON.stringify(b) }),
+  uploadProfileResume: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return req<any>('/profile/resume', { method: 'POST', body: fd });
+  },
+  unsetProfileResume: () => req<any>('/profile/resume', { method: 'DELETE' }),
+
+  createExperience: (b: any) => req<any>('/profile/experiences', { method: 'POST', body: JSON.stringify(b) }),
+  updateExperience: (id: string, b: any) => req<any>(`/profile/experiences/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
+  deleteExperience: (id: string) => req<any>(`/profile/experiences/${id}`, { method: 'DELETE' }),
+
+  createEducation: (b: any) => req<any>('/profile/education', { method: 'POST', body: JSON.stringify(b) }),
+  updateEducation: (id: string, b: any) => req<any>(`/profile/education/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
+  deleteEducation: (id: string) => req<any>(`/profile/education/${id}`, { method: 'DELETE' }),
+
+  createProject: (b: any) => req<any>('/profile/projects', { method: 'POST', body: JSON.stringify(b) }),
+  updateProject: (id: string, b: any) => req<any>(`/profile/projects/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
+  deleteProject: (id: string) => req<any>(`/profile/projects/${id}`, { method: 'DELETE' }),
+
+  createSkills: (items: Array<{ name: string; category?: string }>) =>
+    req<any>('/profile/skills', { method: 'POST', body: JSON.stringify({ items }) }),
+  deleteSkill: (id: string) => req<any>(`/profile/skills/${id}`, { method: 'DELETE' }),
+
+  createCertification: (b: any) => req<any>('/profile/certifications', { method: 'POST', body: JSON.stringify(b) }),
+  updateCertification: (id: string, b: any) => req<any>(`/profile/certifications/${id}`, { method: 'PUT', body: JSON.stringify(b) }),
+  deleteCertification: (id: string) => req<any>(`/profile/certifications/${id}`, { method: 'DELETE' }),
 };

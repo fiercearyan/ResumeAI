@@ -16,6 +16,7 @@ import { chromium } from 'playwright';
 import { config } from './config';
 import { prisma, recordEvent, setStatus } from './db';
 import { putScreenshot, getResume } from './s3';
+import { loadParsedResume } from './mongo';
 import { pickDriver } from './drivers/registry';
 import type { DriverContext, UserProfile } from './drivers/types';
 
@@ -96,11 +97,34 @@ async function processOne(applicationId: string, isResume: boolean) {
     return;
   }
 
-  // Pull the optimized PDF if we have one, else fall back to the original raw resume.
-  const s3Key = app.resumeVersion.s3PdfKey || app.resumeVersion.resume.s3Key;
-  const pdfBytes = await getResume(s3Key);
+  // Greenhouse forms accept pdf/doc/docx/txt/rtf — never raw .tex.
+  // Prefer the optimized PDF from Phase 2 if present; else if the original
+  // upload was PDF, use it directly; else render one on-demand via the
+  // ai-optimizer's /render-pdf endpoint from the parsed resume JSON in Mongo.
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apply-'));
   const resumePdfPath = path.join(tmpDir, 'resume.pdf');
+  const sourceType = app.resumeVersion.resume.sourceType;
+
+  let pdfBytes: Buffer;
+  if (app.resumeVersion.s3PdfKey) {
+    pdfBytes = await getResume(app.resumeVersion.s3PdfKey);
+    await recordEvent(applicationId, 'using_optimized_pdf');
+  } else if (sourceType === 'pdf') {
+    pdfBytes = await getResume(app.resumeVersion.resume.s3Key);
+    await recordEvent(applicationId, 'using_original_pdf');
+  } else {
+    await recordEvent(applicationId, 'rendering_pdf', { message: `Source is .${sourceType}; rendering PDF via ai-optimizer` });
+    const parsed = await loadParsedResume(app.resumeVersion.mongoDocId);
+    if (!parsed) throw new Error('Parsed resume not found in Mongo');
+    const renderRes = await fetch(`${process.env.OPTIMIZER_URL || 'http://ai-optimizer:8004'}/render-pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume: parsed }),
+    });
+    if (!renderRes.ok) throw new Error(`render-pdf failed: HTTP ${renderRes.status}`);
+    const { pdf_b64 } = (await renderRes.json()) as any;
+    pdfBytes = Buffer.from(pdf_b64, 'base64');
+  }
   fs.writeFileSync(resumePdfPath, pdfBytes);
 
   await setStatus(applicationId, 'in_progress');

@@ -5,16 +5,29 @@ import { randomUUID } from 'crypto';
 
 @Injectable()
 export class S3Service {
+  // Internal client: talks to MinIO over the docker network for puts/gets.
   private client: S3Client;
+  // Signing client: configured with the *public* endpoint so presigned URLs we
+  // return to the browser embed `localhost:9000` and the SigV4 host signature
+  // matches what the browser actually sends.
+  private signingClient: S3Client;
 
   constructor() {
+    const creds = {
+      accessKeyId: process.env.S3_ACCESS_KEY || 'resumeai',
+      secretAccessKey: process.env.S3_SECRET_KEY || 'resumeai_dev_secret',
+    };
+    const region = process.env.S3_REGION || 'us-east-1';
     this.client = new S3Client({
       endpoint: process.env.S3_ENDPOINT || 'http://minio:9000',
-      region: process.env.S3_REGION || 'us-east-1',
-      credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY || 'resumeai',
-        secretAccessKey: process.env.S3_SECRET_KEY || 'resumeai_dev_secret',
-      },
+      region,
+      credentials: creds,
+      forcePathStyle: true,
+    });
+    this.signingClient = new S3Client({
+      endpoint: process.env.S3_PUBLIC_ENDPOINT || 'http://localhost:9000',
+      region,
+      credentials: creds,
       forcePathStyle: true,
     });
   }
@@ -37,7 +50,7 @@ export class S3Service {
 
   async signedGetUrl(bucket: string, key: string, expiresInSec = 600) {
     return getSignedUrl(
-      this.client,
+      this.signingClient,
       new GetObjectCommand({ Bucket: bucket, Key: key }),
       { expiresIn: expiresInSec },
     );

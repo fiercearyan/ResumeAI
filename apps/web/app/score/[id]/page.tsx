@@ -36,9 +36,21 @@ export default function ScorePage() {
   if (q.isLoading || !q.data) return <div className="p-8">Loading score…</div>;
   const s = q.data;
   const jdUrl: string | undefined = s.jd?.sourceUrl;
-  const isGreenhouse = jdUrl ? /(^|\.)greenhouse\.io$/.test(new URL(jdUrl).hostname) : false;
+  // Mirror the backend's detectPlatform: accept *.greenhouse.io hostnames OR
+  // any URL whose path contains `mock-greenhouse` (the local smoke fixture).
+  const isGreenhouse = (() => {
+    if (!jdUrl) return false;
+    try {
+      const u = new URL(jdUrl);
+      if (/(^|\.)greenhouse\.io$/.test(u.hostname)) return true;
+      if (/mock-greenhouse/.test(u.pathname)) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  })();
   const meetsThreshold = prefs.data ? s.overall >= (prefs.data.minAtsScore ?? 80) : s.overall >= 80;
-  const applyEligible = isGreenhouse && meetsThreshold;
+  const applyEligible = !!jdUrl && isGreenhouse && meetsThreshold;
 
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-6">
@@ -129,10 +141,12 @@ export default function ScorePage() {
           <Button disabled={!applyEligible || apply.isPending} onClick={() => apply.mutate()}>
             {apply.isPending
               ? 'Queuing…'
+              : !jdUrl
+              ? 'Add this JD via URL (not text) to enable'
               : !isGreenhouse
-              ? 'Greenhouse only (Phase 3)'
+              ? 'Only Greenhouse postings supported in Phase 3'
               : !meetsThreshold
-              ? `Below your min ATS threshold (${prefs.data?.minAtsScore ?? 80})`
+              ? `Score ${Math.round(s.overall)} is below your min (${prefs.data?.minAtsScore ?? 80})`
               : 'Apply with this resume'}
           </Button>
           {apply.isError && <p className="text-sm text-danger">{(apply.error as any)?.message}</p>}
