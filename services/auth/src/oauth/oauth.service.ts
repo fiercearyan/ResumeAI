@@ -7,7 +7,16 @@ import { ProviderKey, providers } from './providers';
 import { enc } from './crypto';
 
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 min
-const STATE = new Map<string, { provider: ProviderKey; redirectAfter?: string; expiresAt: number }>();
+const STATE = new Map<
+  string,
+  {
+    provider: ProviderKey;
+    redirectAfter?: string;
+    /** When linking from an authenticated session, the user the new identity will attach to. */
+    linkUserId?: string;
+    expiresAt: number;
+  }
+>();
 
 function newState(): string {
   return randomBytes(24).toString('base64url');
@@ -29,13 +38,18 @@ export class OAuthService {
     }));
   }
 
-  startAuthorize(providerKey: ProviderKey, redirectAfter?: string): string {
+  startAuthorize(providerKey: ProviderKey, redirectAfter?: string, linkUserId?: string): string {
     const p = providers[providerKey];
     if (!p) throw new NotFoundException(`unknown provider ${providerKey}`);
     if (!p.enabled() && !mockMode()) throw new BadRequestException(`${providerKey} not configured`);
     pruneExpired();
     const state = newState();
-    STATE.set(state, { provider: providerKey, redirectAfter, expiresAt: Date.now() + STATE_TTL_MS });
+    STATE.set(state, {
+      provider: providerKey,
+      redirectAfter,
+      linkUserId,
+      expiresAt: Date.now() + STATE_TTL_MS,
+    });
     if (mockMode()) {
       // Skip the network round-trip and immediately bounce back to our own callback.
       return `${p.redirectUri}?code=MOCK_${providerKey}&state=${encodeURIComponent(state)}`;
@@ -64,15 +78,37 @@ export class OAuthService {
       profile = await p.fetchProfile(tokens.accessToken);
     }
 
-    // Find existing identity OR existing user-by-email OR create new user.
+    // Resolve which user this identity attaches to.
+    //
+    // Priority:
+    //   1. If the OAuth flow was started while authenticated (linkUserId set),
+    //      attach to that user. This is the "Link from Account Settings"
+    //      path and it bypasses email matching entirely so users with different
+    //      provider-emails can still consolidate.
+    //   2. Otherwise look up by (provider, provider_user_id) — already linked
+    //      from a previous sign-in.
+    //   3. Otherwise look up by email — same person signing in via a new
+    //      provider that happens to share an email.
+    //   4. Otherwise create a new user.
     let userId: string | null = null;
 
     const idLookup = await this.db.query<{ user_id: string }>(
       'SELECT user_id FROM oauth_identities WHERE provider=$1 AND provider_user_id=$2',
       [providerKey, profile.providerUserId],
     );
-    if (idLookup.rowCount && idLookup.rowCount > 0) {
-      userId = idLookup.rows[0].user_id;
+    const existingIdUserId = idLookup.rowCount && idLookup.rowCount > 0 ? idLookup.rows[0].user_id : null;
+
+    if (ctx.linkUserId) {
+      // Linking from an authenticated session.
+      if (existingIdUserId && existingIdUserId !== ctx.linkUserId) {
+        throw new BadRequestException(
+          `That ${providerKey} account is already linked to a different ResumeAI account. ` +
+            `Sign out and use that account, or unlink the provider there first.`,
+        );
+      }
+      userId = ctx.linkUserId;
+    } else if (existingIdUserId) {
+      userId = existingIdUserId;
     } else if (profile.email) {
       const u = await this.db.query<{ id: string }>(
         'SELECT id FROM users WHERE email=$1 AND deleted_at IS NULL',
@@ -105,8 +141,18 @@ export class OAuthService {
       [userId, providerKey, profile.providerUserId, profile.email, enc(tokens.accessToken), enc(tokens.refreshToken ?? null), expiresAt],
     );
 
-    // Issue tokens (skip MFA gate for OAuth-bound sessions if MFA is off; if on,
-    // we still return an interim mfa_challenge token).
+    // For link-from-authenticated flows, don't issue new session tokens —
+    // the user is already signed in and we just want to drop them back where
+    // they came from with a "linked ✓" indicator.
+    if (ctx.linkUserId) {
+      return {
+        linked: true,
+        provider: providerKey,
+        redirectAfter: ctx.redirectAfter || '/settings/account',
+      };
+    }
+
+    // Sign-in flow: issue tokens (or an MFA challenge).
     const me = await this.auth.meOrThrow(userId!);
     const mfa = await this.db.query<{ mfa_enabled: boolean }>(
       'SELECT mfa_enabled FROM users WHERE id=$1',
@@ -119,7 +165,7 @@ export class OAuthService {
       );
       return { mfaRequired: true, challenge, redirectAfter: ctx.redirectAfter || null };
     }
-    const pair: TokenPair = (this.auth as any).issueTokens(me);
+    const pair: TokenPair = this.auth.issueTokens(me);
     return { mfaRequired: false, user: me, tokens: pair, redirectAfter: ctx.redirectAfter || null };
   }
 

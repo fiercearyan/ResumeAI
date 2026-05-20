@@ -116,6 +116,15 @@ export const api = {
     req<{ providers: { key: string; enabled: boolean }[] }>('/providers', {}, { base: `${AUTH_BASE}/auth/oauth`, auth: false }),
   oauthStartUrl: (provider: string, redirectAfter?: string) =>
     `${AUTH_BASE}/auth/oauth/${provider}/start${redirectAfter ? `?redirect=${encodeURIComponent(redirectAfter)}` : ''}`,
+  /** Authenticated link flow — call this from /settings/account, then navigate
+   *  the browser to the returned authorizeUrl. Carries the user identity in
+   *  server-side OAuth state so the callback links to the current user. */
+  oauthLinkStart: (provider: string, redirectAfter?: string) =>
+    req<{ authorizeUrl: string }>(
+      `/${provider}/link-start`,
+      { method: 'POST', body: JSON.stringify({ redirect: redirectAfter }) },
+      { base: `${AUTH_BASE}/auth/oauth` },
+    ),
   listIdentities: () => req<any[]>('/identities', {}, { base: `${AUTH_BASE}/auth/oauth` }),
   unlinkIdentity: (provider: string) =>
     req<any>(`/${provider}/unlink`, { method: 'POST' }, { base: `${AUTH_BASE}/auth/oauth` }),

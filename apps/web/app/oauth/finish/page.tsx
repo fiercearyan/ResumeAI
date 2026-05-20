@@ -27,6 +27,13 @@ export default function OAuthFinish() {
     const hash = window.location.hash.slice(1);
     if (!hash) { setError('No tokens returned'); return; }
     const params = new URLSearchParams(hash);
+
+    // Authenticated link flow finished — the session is unchanged.
+    if (params.get('linked') === '1') {
+      router.replace(sp.get('next') || '/settings/account');
+      return;
+    }
+
     const challenge = params.get('mfa_challenge');
     if (challenge) {
       setMfaChallenge(challenge);

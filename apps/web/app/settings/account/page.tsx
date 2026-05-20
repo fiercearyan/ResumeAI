@@ -184,7 +184,17 @@ function ConnectedAccountsSection() {
                 ident ? (
                   <Button size="sm" variant="outline" onClick={() => unlink.mutate(p.key)}>Unlink</Button>
                 ) : (
-                  <Button size="sm" onClick={() => (window.location.href = api.oauthStartUrl(p.key, '/settings/account'))}>
+                  <Button
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const r = await api.oauthLinkStart(p.key, '/settings/account');
+                        window.location.href = r.authorizeUrl;
+                      } catch (e: any) {
+                        alert(e?.message || 'Could not start link flow');
+                      }
+                    }}
+                  >
                     Link
                   </Button>
                 )
