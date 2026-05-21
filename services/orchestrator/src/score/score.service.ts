@@ -3,6 +3,7 @@ import axios from 'axios';
 import { PrismaService } from '../common/prisma.service';
 import { MongoService } from '../common/mongo.service';
 import { ScoreGateway } from './score.gateway';
+import { notify } from '../common/notify';
 
 const ATS_URL = process.env.ATS_ENGINE_URL || 'http://ats-engine:8003';
 
@@ -64,6 +65,18 @@ export class ScoreService {
     });
 
     this.gateway.emit(taskRoom, { stage: 'completed', progress: 100, scoreId: saved.id });
+
+    // Fire-and-forget email — best-effort, never blocks the response.
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (user) {
+      notify({
+        userId,
+        email: user.email,
+        template: 'score_complete',
+        data: { overall: scoreResp.overall, jdTitle: jd.title, scoreId: saved.id },
+        idempotencyKey: `score:${saved.id}`,
+      });
+    }
     return saved;
   }
 

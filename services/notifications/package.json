@@ -1,0 +1,21 @@
+{
+  "name": "@resumeai/notifications",
+  "version": "0.4.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p .",
+    "start": "node dist/main.js",
+    "start:dev": "tsx watch src/main.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.8.0",
+    "nodemailer": "^6.9.10"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/nodemailer": "^6.4.14",
+    "prisma": "^5.8.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}

@@ -17,6 +17,7 @@ import { config } from './config';
 import { prisma, recordEvent, setStatus } from './db';
 import { putScreenshot, getResume } from './s3';
 import { loadParsedResume } from './mongo';
+import { notify } from './notify';
 import { pickDriver } from './drivers/registry';
 import type { DriverContext, UserProfile } from './drivers/types';
 
@@ -161,12 +162,26 @@ async function processOne(applicationId: string, isResume: boolean) {
     if (!isResume && mode !== 'auto') {
       await setStatus(applicationId, 'awaiting_user');
       await recordEvent(applicationId, 'awaiting_user', { message: 'Review form fill and screenshots, then approve to submit.' });
+      notify({
+        userId: app.userId,
+        email: userRow.email,
+        template: 'application_awaiting_user',
+        data: { jdTitle: app.jd.title, applicationId },
+        idempotencyKey: `apply_awaiting:${applicationId}`,
+      });
       return;
     }
 
     const result = await driver.submit(ctx);
     await setStatus(applicationId, 'submitted', { externalId: result.externalId, submittedAt: new Date() });
     await recordEvent(applicationId, 'submitted', { meta: { confirmation_preview: (result.confirmationText || '').slice(0, 400) } });
+    notify({
+      userId: app.userId,
+      email: userRow.email,
+      template: 'application_status_change',
+      data: { jdTitle: app.jd.title, status: 'submitted', applicationId },
+      idempotencyKey: `apply_submitted:${applicationId}`,
+    });
   } finally {
     await context.close().catch(() => {});
     await browser.close().catch(() => {});

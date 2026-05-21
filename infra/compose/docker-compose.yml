@@ -197,6 +197,21 @@ services:
     volumes:
       - ../../services/auto-apply/src:/app/src
 
+  notifications:
+    build:
+      context: ../..
+      dockerfile: services/notifications/Dockerfile
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+    ports:
+      - "8006:8006"
+    volumes:
+      - ../../services/notifications/src:/app/src
+
   web:
     build:
       context: ../../apps/web

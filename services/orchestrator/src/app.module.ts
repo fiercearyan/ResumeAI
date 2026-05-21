@@ -21,6 +21,9 @@ import { ProfileController } from './profile/profile.controller';
 import { ProfileService } from './profile/profile.service';
 import { MeController } from './me/me.controller';
 import { MeService } from './me/me.service';
+import { BillingController } from './billing/billing.controller';
+import { BillingService } from './billing/billing.service';
+import { OptimizeQuotaGuard, ApplyQuotaGuard } from './billing/quota.guard';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -35,6 +38,7 @@ import { HealthController } from './health.controller';
     PreferencesController,
     ProfileController,
     MeController,
+    BillingController,
   ],
   providers: [
     PrismaService,
@@ -50,6 +54,9 @@ import { HealthController } from './health.controller';
     PreferencesService,
     ProfileService,
     MeService,
+    BillingService,
+    OptimizeQuotaGuard,
+    ApplyQuotaGuard,
   ],
 })
 export class AppModule {}

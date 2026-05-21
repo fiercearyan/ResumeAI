@@ -5,6 +5,7 @@ import { randomBytes } from 'crypto';
 import { DbService } from '../db.service';
 import { AuthService, TokenPair } from '../auth.service';
 import { generateBase32Secret, otpauthUrl, verifyTotp } from './totp';
+import { notify } from '../common/notify';
 
 const ISSUER = process.env.MFA_ISSUER || 'ResumeAI';
 
@@ -34,6 +35,12 @@ export class MfaService {
       'UPDATE users SET mfa_enabled=true, mfa_backup_codes_hash=$1 WHERE id=$2',
       [JSON.stringify(hashes), userId],
     );
+    notify({
+      userId,
+      email: u.email,
+      template: 'mfa_enabled',
+      idempotencyKey: `mfa_enabled:${userId}:${Date.now()}`,
+    });
     return { ok: true, backupCodes: codes };
   }
 

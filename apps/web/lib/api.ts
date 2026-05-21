@@ -144,4 +144,10 @@ export const api = {
   // Me (GDPR)
   exportMeUrl: () => `${API_BASE}/api/me/export`,
   deleteMe: () => req<any>('/me/delete', { method: 'POST' }),
+
+  // Billing
+  getBillingStatus: () => req<any>('/billing/status'),
+  startCheckout: (plan: 'pro') =>
+    req<{ url: string; mock: boolean }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ plan }) }),
+  openBillingPortal: () => req<{ url: string; mock: boolean }>('/billing/portal', { method: 'POST' }),
 };

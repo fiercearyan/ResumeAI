@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { MongoService } from '../common/mongo.service';
+import { notify } from '../common/notify';
 
 /**
  * GDPR endpoints — user-facing export + hard-delete.
@@ -85,6 +86,9 @@ export class MeService {
   }
 
   async hardDelete(userId: string) {
+    // Capture email BEFORE deletion so we can send the confirmation.
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+
     // Mongo first — no FK, no ON DELETE.
     const resumes = await this.prisma.resume.findMany({
       where: { userId },
@@ -102,6 +106,13 @@ export class MeService {
     }
     // Postgres: cascade from users (every owned table has ON DELETE CASCADE).
     await this.prisma.user.delete({ where: { id: userId } });
+    if (user) {
+      notify({
+        email: user.email,
+        template: 'account_deleted',
+        idempotencyKey: `account_deleted:${userId}`,
+      });
+    }
     return { ok: true };
   }
 

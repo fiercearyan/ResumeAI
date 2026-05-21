@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from '@nest
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsUUID } from 'class-validator';
 import { AuthGuard } from '../common/auth.guard';
+import { ApplyQuotaGuard } from '../billing/quota.guard';
 import { ApplyService } from './apply.service';
 
 class CreateApplyDto {
@@ -18,6 +19,7 @@ export class ApplyController {
   constructor(private apply: ApplyService) {}
 
   @Post()
+  @UseGuards(ApplyQuotaGuard)
   create(@Req() req: any, @Body() dto: CreateApplyDto) {
     return this.apply.create(req.user.id, dto);
   }

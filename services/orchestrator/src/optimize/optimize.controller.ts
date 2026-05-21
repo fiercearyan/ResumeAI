@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
 import { Response } from 'express';
 import { AuthGuard } from '../common/auth.guard';
+import { OptimizeQuotaGuard } from '../billing/quota.guard';
 import { OptimizeService } from './optimize.service';
 
 class CreateOptimizeDto {
@@ -18,6 +19,7 @@ export class OptimizeController {
   constructor(private optimize: OptimizeService) {}
 
   @Post()
+  @UseGuards(OptimizeQuotaGuard)
   run(@Req() req: any, @Body() dto: CreateOptimizeDto) {
     return this.optimize.run(req.user.id, dto.resumeVersionId, dto.jdId);
   }

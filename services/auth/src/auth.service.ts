@@ -2,6 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { DbService } from './db.service';
+import { notify } from './common/notify';
 
 export interface AuthUser {
   id: string;
@@ -37,6 +38,13 @@ export class AuthService {
     );
     const user = this.toAuthUser(inserted.rows[0]);
     const tokens = this.issueTokens(user);
+    notify({
+      userId: user.id,
+      email: user.email,
+      template: 'welcome',
+      data: { fullName: user.fullName, firstName: user.fullName?.split(/\s+/)[0] },
+      idempotencyKey: `welcome:${user.id}`,
+    });
     return { user, tokens };
   }
 
