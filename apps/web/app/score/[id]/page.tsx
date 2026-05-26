@@ -49,8 +49,11 @@ export default function ScorePage() {
       return false;
     }
   })();
-  const meetsThreshold = prefs.data ? s.overall >= (prefs.data.minAtsScore ?? 80) : s.overall >= 80;
-  const applyEligible = !!jdUrl && isGreenhouse && meetsThreshold;
+  // The score is informational only — we let users apply at any score and
+  // surface a soft warning when it's below their preferred threshold.
+  const threshold = prefs.data?.minAtsScore ?? 80;
+  const belowThreshold = s.overall < threshold;
+  const applyEligible = !!jdUrl && isGreenhouse;
 
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-6">
@@ -138,6 +141,12 @@ export default function ScorePage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
+          {applyEligible && belowThreshold && (
+            <p className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-md px-3 py-2">
+              Your ATS score ({Math.round(s.overall)}) is below your preferred threshold ({Math.round(threshold)}).
+              You can still apply — consider running <span className="font-medium">Optimize resume</span> first to lift the score.
+            </p>
+          )}
           <Button disabled={!applyEligible || apply.isPending} onClick={() => apply.mutate()}>
             {apply.isPending
               ? 'Queuing…'
@@ -145,8 +154,6 @@ export default function ScorePage() {
               ? 'Add this JD via URL (not text) to enable'
               : !isGreenhouse
               ? 'Only Greenhouse postings supported in Phase 3'
-              : !meetsThreshold
-              ? `Score ${Math.round(s.overall)} is below your min (${prefs.data?.minAtsScore ?? 80})`
               : 'Apply with this resume'}
           </Button>
           {apply.isError && <p className="text-sm text-danger">{(apply.error as any)?.message}</p>}
