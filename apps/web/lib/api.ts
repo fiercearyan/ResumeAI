@@ -153,4 +153,20 @@ export const api = {
 
   // LLM usage
   getLlmUsage: () => req<any>('/me/llm-usage'),
+
+  // Smart Apply: saved answers (questionnaire)
+  listSavedAnswers: () => req<any[]>('/saved-answers'),
+  upsertSavedAnswer: (questionText: string, answerText: string) =>
+    req<any>('/saved-answers', { method: 'PUT', body: JSON.stringify({ questionText, answerText }) }),
+  deleteSavedAnswer: (questionKey: string) =>
+    req<any>(`/saved-answers/${encodeURIComponent(questionKey)}`, { method: 'DELETE' }),
+
+  // Smart Apply: per-application questionnaire (pending questions UI)
+  getApplicationQuestionnaire: (appId: string) =>
+    req<any>(`/applications/${appId}/questionnaire`),
+  answerPending: (appId: string, answers: Array<{ questionText: string; answerText: string }>) =>
+    req<any>(`/applications/${appId}/answer-pending`, {
+      method: 'POST',
+      body: JSON.stringify({ answers }),
+    }),
 };

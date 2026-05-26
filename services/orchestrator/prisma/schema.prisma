@@ -192,22 +192,80 @@ model ApplyEvent {
 // ----- Profile system (Phase 3.5) ----------------------------------------
 
 model Profile {
-  userId           String   @id @map("user_id") @db.Uuid
-  fullName         String?  @map("full_name")
-  phone            String?
-  currentLocation  String?  @map("current_location")
-  linkedinUrl      String?  @map("linkedin_url")
-  githubUrl        String?  @map("github_url")
-  portfolioUrl     String?  @map("portfolio_url")
-  jobTitle         String?  @map("job_title")
-  summary          String?
-  languages        Json     @default("[]")  // string[]
-  achievements     String?
-  primaryResumeId  String?  @map("primary_resume_id") @db.Uuid
-  completionPct    Int      @default(0) @map("completion_pct")
-  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+  userId             String   @id @map("user_id") @db.Uuid
+  fullName           String?  @map("full_name")
+  phone              String?
+  currentLocation    String?  @map("current_location")
+  linkedinUrl        String?  @map("linkedin_url")
+  githubUrl          String?  @map("github_url")
+  portfolioUrl       String?  @map("portfolio_url")
+  jobTitle           String?  @map("job_title")
+  summary            String?
+  languages          Json     @default("[]")  // string[]
+  achievements       String?
+  // Smart Apply additions (Phase 5a)
+  linkedinHeadline   String?  @map("linkedin_headline")
+  yearsOfExperience  Float?   @map("years_of_experience")
+  currentCompany     String?  @map("current_company")
+  noticePeriod       String?  @map("notice_period")
+  currentSalary      String?  @map("current_salary")
+  expectedSalary     String?  @map("expected_salary")
+  workAuth           String?  @map("work_auth")               // e.g. "US Citizen" / "H1B" / "EU work permit"
+  requiresSponsorship Boolean? @map("requires_sponsorship")
+  preferredLocation  String?  @map("preferred_location")
+  gender             String?  @map("gender")                  // optional self-id
+  race               String?  @map("race")
+  veteranStatus      String?  @map("veteran_status")
+  disabilityStatus   String?  @map("disability_status")
+
+  primaryResumeId    String?  @map("primary_resume_id") @db.Uuid
+  completionPct      Int      @default(0) @map("completion_pct")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("profiles")
+}
+
+// ----- Smart Apply (Phase 5a) --------------------------------------------
+
+/// Reusable per-user answers to free-text application questions.
+/// `questionKey` is the normalized form of the question label so the mapping
+/// engine can look up "Are you authorized to work in the US?" exactly once.
+model SavedAnswer {
+  userId       String   @map("user_id") @db.Uuid
+  questionKey  String   @map("question_key")
+  questionText String   @map("question_text") @db.Text  // original label as the user saw it
+  answerText   String   @map("answer_text") @db.Text
+  source       String   @default("user")                // user | profile | inferred
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@id([userId, questionKey])
+  @@map("saved_answers")
+  @@index([userId, updatedAt(sort: Desc)])
+}
+
+/// Synonym table mapping normalized field labels to profile field keys.
+/// Seeded at boot with ~50 common Greenhouse labels; users never edit this
+/// directly but it can be expanded operationally.
+model FieldMapping {
+  id            String   @id @default(uuid()) @db.Uuid
+  labelPattern  String   @unique @map("label_pattern")  // normalized
+  profileField  String   @map("profile_field")          // dot-path into profile, or "saved_answer"
+  confidence    Float    @default(0.9)
+  source        String   @default("seed")               // seed | manual | learned
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("field_mappings")
+  @@index([profileField])
+}
+
+/// Persistent record of every question the worker asked about during an
+/// application; lets the FE render an editable history per-app.
+model ApplicationQuestionnaire {
+  applicationId String   @id @map("application_id") @db.Uuid
+  payload       Json                                    // [{ label, kind, options?, answer?, source? }]
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("application_questionnaires")
 }
 
 model ProfileExperience {

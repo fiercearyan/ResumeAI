@@ -139,10 +139,22 @@ async function processOne(applicationId: string, isResume: boolean) {
   });
   const page = await context.newPage();
 
+  // Fetch the Smart Apply context (profile + saved answers + field mappings)
+  // from the orchestrator's internal endpoint. Falls back to an empty context
+  // so the driver can still attempt a fill with profile-only data.
+  let applyContext: any = { scope: { user: { email: userRow.email }, profile: {} }, savedAnswers: [], mappings: [], primaryResume: null };
+  try {
+    const r = await fetch(`http://orchestrator:${process.env.ORCHESTRATOR_PORT || 4000}/api/_internal/apply-context/${app.userId}`);
+    if (r.ok) applyContext = await r.json();
+  } catch (e: any) {
+    console.warn('[worker] apply-context fetch failed', e?.message || e);
+  }
+
   const ctx: DriverContext = {
     page,
     jdUrl,
     profile,
+    applyContext,
     resumePdfPath,
     screenshot: async (label, opts) => {
       const png = await page.screenshot({ fullPage: opts?.fullPage });
@@ -156,12 +168,28 @@ async function processOne(applicationId: string, isResume: boolean) {
   try {
     // Browser state isn't persisted across the awaiting_user pause, so we
     // re-run fillForm on every invocation (initial + resume). Idempotent.
-    await driver.fillForm(ctx);
+    const fillResult = await driver.fillForm(ctx);
+
+    // Persist the questionnaire snapshot so the UI can render the pending
+    // questions even after the worker tears down.
+    try {
+      await fetch(`http://orchestrator:${process.env.ORCHESTRATOR_PORT || 4000}/api/_internal/questionnaire/${applicationId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filled: fillResult.filled, pending: fillResult.pending }),
+      });
+    } catch {}
 
     const mode = config.forceReviewMode ? 'review' : app.mode;
-    if (!isResume && mode !== 'auto') {
+    // Pause for awaiting_user if (a) we're in review mode OR (b) there are
+    // unanswered pending questions — even in auto mode, we never submit a
+    // partially-filled form.
+    if ((!isResume && mode !== 'auto') || fillResult.pending.length > 0) {
       await setStatus(applicationId, 'awaiting_user');
-      await recordEvent(applicationId, 'awaiting_user', { message: 'Review form fill and screenshots, then approve to submit.' });
+      const msg = fillResult.pending.length
+        ? `${fillResult.pending.length} unanswered question(s) — fill them below to continue.`
+        : 'Review form fill and screenshots, then approve to submit.';
+      await recordEvent(applicationId, 'awaiting_user', { message: msg, meta: { pendingCount: fillResult.pending.length } });
       notify({
         userId: app.userId,
         email: userRow.email,

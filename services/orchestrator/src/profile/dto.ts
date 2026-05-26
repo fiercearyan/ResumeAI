@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsNumber, IsOptional, IsString, IsUrl, MaxLength, Min } from 'class-validator';
 
 export class PatchProfileDto {
   @IsOptional() @IsString() @MaxLength(160) fullName?: string;
@@ -11,6 +11,20 @@ export class PatchProfileDto {
   @IsOptional() @IsString() @MaxLength(2000) summary?: string;
   @IsOptional() @IsString() @MaxLength(2000) achievements?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(30) languages?: string[];
+  // Smart Apply extensions
+  @IsOptional() @IsString() @MaxLength(200) linkedinHeadline?: string;
+  @IsOptional() @IsNumber() @Min(0) yearsOfExperience?: number | null;
+  @IsOptional() @IsString() @MaxLength(160) currentCompany?: string;
+  @IsOptional() @IsString() @MaxLength(40) noticePeriod?: string;
+  @IsOptional() @IsString() @MaxLength(80) currentSalary?: string;
+  @IsOptional() @IsString() @MaxLength(80) expectedSalary?: string;
+  @IsOptional() @IsString() @MaxLength(120) workAuth?: string;
+  @IsOptional() @IsBoolean() requiresSponsorship?: boolean | null;
+  @IsOptional() @IsString() @MaxLength(160) preferredLocation?: string;
+  @IsOptional() @IsString() @MaxLength(80) gender?: string;
+  @IsOptional() @IsString() @MaxLength(80) race?: string;
+  @IsOptional() @IsString() @MaxLength(80) veteranStatus?: string;
+  @IsOptional() @IsString() @MaxLength(80) disabilityStatus?: string;
 }
 
 export class ExperienceDto {

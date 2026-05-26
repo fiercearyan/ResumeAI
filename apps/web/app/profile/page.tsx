@@ -101,20 +101,35 @@ function PersonalSection({ profile, onSaved }: { profile: any; onSaved: () => vo
 function CareerSection({ profile, onSaved }: { profile: any; onSaved: () => void }) {
   const [form, setForm] = useState({
     jobTitle: profile.jobTitle || '',
+    linkedinHeadline: profile.linkedinHeadline || '',
+    yearsOfExperience: profile.yearsOfExperience ?? '',
+    currentCompany: profile.currentCompany || '',
     summary: profile.summary || '',
     achievements: profile.achievements || '',
     languages: Array.isArray(profile.languages) ? profile.languages.join(', ') : '',
+    noticePeriod: profile.noticePeriod || '',
+    currentSalary: profile.currentSalary || '',
+    expectedSalary: profile.expectedSalary || '',
+    workAuth: profile.workAuth || '',
+    requiresSponsorship: profile.requiresSponsorship ?? null,
+    preferredLocation: profile.preferredLocation || '',
   });
   const save = useMutation({
     mutationFn: () =>
       api.patchProfile({
         jobTitle: form.jobTitle,
+        linkedinHeadline: form.linkedinHeadline,
+        yearsOfExperience: form.yearsOfExperience === '' ? null : Number(form.yearsOfExperience),
+        currentCompany: form.currentCompany,
         summary: form.summary,
         achievements: form.achievements,
-        languages: form.languages
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
+        languages: form.languages.split(',').map((s) => s.trim()).filter(Boolean),
+        noticePeriod: form.noticePeriod,
+        currentSalary: form.currentSalary,
+        expectedSalary: form.expectedSalary,
+        workAuth: form.workAuth,
+        requiresSponsorship: form.requiresSponsorship === null ? null : Boolean(form.requiresSponsorship),
+        preferredLocation: form.preferredLocation,
       }),
     onSuccess: onSaved,
   });
@@ -130,8 +145,53 @@ function CareerSection({ profile, onSaved }: { profile: any; onSaved: () => void
       description="Surfaced to recruiters and used when generating optimized resumes."
     >
       <div className="grid md:grid-cols-2 gap-3">
-        <Field label="Current job title" className="md:col-span-2">
+        <Field label="Current job title">
           <Input value={form.jobTitle} onChange={(e) => setForm({ ...form, jobTitle: e.target.value })} placeholder="Senior Software Engineer" />
+        </Field>
+        <Field label="Current company">
+          <Input value={form.currentCompany} onChange={(e) => setForm({ ...form, currentCompany: e.target.value })} placeholder="Acme Cloud" />
+        </Field>
+        <Field label="LinkedIn headline" className="md:col-span-2">
+          <Input value={form.linkedinHeadline} onChange={(e) => setForm({ ...form, linkedinHeadline: e.target.value })} placeholder="Senior backend engineer · Distributed systems · ex-Acme" />
+        </Field>
+        <Field label="Years of experience">
+          <Input
+            type="number"
+            value={String(form.yearsOfExperience)}
+            onChange={(e) => setForm({ ...form, yearsOfExperience: e.target.value as any })}
+            placeholder="8"
+          />
+        </Field>
+        <Field label="Notice period">
+          <Input value={form.noticePeriod} onChange={(e) => setForm({ ...form, noticePeriod: e.target.value })} placeholder="2 weeks / 60 days / Immediate" />
+        </Field>
+        <Field label="Current salary (incl. currency)">
+          <Input value={form.currentSalary} onChange={(e) => setForm({ ...form, currentSalary: e.target.value })} placeholder="$185,000" />
+        </Field>
+        <Field label="Expected salary">
+          <Input value={form.expectedSalary} onChange={(e) => setForm({ ...form, expectedSalary: e.target.value })} placeholder="$210,000" />
+        </Field>
+        <Field label="Work authorization">
+          <Input value={form.workAuth} onChange={(e) => setForm({ ...form, workAuth: e.target.value })} placeholder="US Citizen / H1B / EU Work Permit" />
+        </Field>
+        <Field label="Require sponsorship?">
+          <select
+            className="w-full h-10 rounded-md border bg-transparent px-3 text-sm"
+            value={form.requiresSponsorship === null ? '' : form.requiresSponsorship ? 'yes' : 'no'}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                requiresSponsorship: e.target.value === '' ? null : e.target.value === 'yes',
+              })
+            }
+          >
+            <option value="">— select —</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </Field>
+        <Field label="Preferred work location" className="md:col-span-2">
+          <Input value={form.preferredLocation} onChange={(e) => setForm({ ...form, preferredLocation: e.target.value })} placeholder="San Francisco, Remote (US)" />
         </Field>
         <Field label={`Professional summary (${form.summary.trim().length} / ≥50 chars)`} className="md:col-span-2" hint={summaryHint}>
           <Textarea value={form.summary} onChange={(e) => setForm({ ...form, summary: e.target.value })} placeholder="Senior engineer with 8 years building distributed systems at scale…" />
