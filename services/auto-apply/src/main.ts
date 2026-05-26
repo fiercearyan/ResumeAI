@@ -7,6 +7,11 @@
  *  2) A background worker that polls a Redis list (BLPOP) and runs the
  *     Playwright driver pipeline per application.
  */
+import { initOtel } from './otel';
+import { initSentry } from './sentry';
+initOtel('auto-apply');
+initSentry('auto-apply');
+
 import http from 'http';
 import { config } from './config';
 import { runWorker, enqueueApplication, resumeApplication } from './worker';

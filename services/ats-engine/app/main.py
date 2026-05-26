@@ -1,3 +1,6 @@
+from .observability import init_sentry
+init_sentry("ats-engine")
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict

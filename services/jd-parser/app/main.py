@@ -1,3 +1,6 @@
+from .observability import init_sentry
+init_sentry("jd-parser")
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Literal

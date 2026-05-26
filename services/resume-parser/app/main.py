@@ -1,3 +1,6 @@
+from .observability import init_sentry
+init_sentry("resume-parser")
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from .parsers.pdf import parse_pdf
 from .parsers.docx_parser import parse_docx

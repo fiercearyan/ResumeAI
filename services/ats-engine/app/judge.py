@@ -80,6 +80,9 @@ async def readability_and_rationale(
             tool_choice={"type": "tool", "name": "record_judgement"},
             messages=[{"role": "user", "content": user}],
         )
+        from .llm_usage import record, extract_usage
+        in_tok, out_tok = extract_usage(resp)
+        await record(service="ats-engine", model=MODEL, in_tokens=in_tok, out_tokens=out_tok, endpoint="judge")
         for block in resp.content:
             if block.type == "tool_use" and block.name == "record_judgement":
                 data = block.input

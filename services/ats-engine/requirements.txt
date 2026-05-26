@@ -6,3 +6,10 @@ scikit-learn==1.4.0
 sentence-transformers==2.5.1
 anthropic==0.39.0
 redis==5.0.1
+sentry-sdk[fastapi]==1.45.0
+opentelemetry-distro==0.46b0
+opentelemetry-exporter-otlp==1.25.0
+opentelemetry-instrumentation-fastapi==0.46b0
+opentelemetry-instrumentation-httpx==0.46b0
+opentelemetry-instrumentation-requests==0.46b0
+psycopg2-binary==2.9.9

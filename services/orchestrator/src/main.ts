@@ -1,3 +1,10 @@
+import { initOtel } from './common/otel';
+import { initSentry } from './common/sentry';
+// OTel + Sentry MUST init before any other module loads so auto-instrument
+// can hook into Express/http/fetch/pg/etc. at require time.
+initOtel('orchestrator');
+initSentry('orchestrator');
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';

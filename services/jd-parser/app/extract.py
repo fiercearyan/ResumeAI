@@ -74,6 +74,10 @@ async def structured_extract(text: str, source_url: Optional[str] = None) -> dic
             tool_choice={"type": "tool", "name": "record_jd"},
             messages=[{"role": "user", "content": user_msg}],
         )
+        # Log usage — fire-and-forget.
+        from .llm_usage import record, extract_usage
+        in_tok, out_tok = extract_usage(resp)
+        await record(service="jd-parser", model=MODEL, in_tokens=in_tok, out_tokens=out_tok, endpoint="extract")
         for block in resp.content:
             if block.type == "tool_use" and block.name == "record_jd":
                 data = dict(block.input)

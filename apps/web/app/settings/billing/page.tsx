@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Check, Sparkles, X } from 'lucide-react';
+import { Check, Sparkles, X, Activity } from 'lucide-react';
 
 export default function BillingPage() {
   const sp = useSearchParams();
@@ -119,6 +119,8 @@ export default function BillingPage() {
         })}
       </div>
 
+      <LlmUsageCard />
+
       {customer && (
         <Card>
           <CardHeader><CardTitle className="text-base">Subscription details</CardTitle></CardHeader>
@@ -134,5 +136,67 @@ export default function BillingPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+function LlmUsageCard() {
+  const q = useQuery({ queryKey: ['llm-usage'], queryFn: api.getLlmUsage });
+  if (!q.data) return null;
+  const { last30Days, lifetime, byService, recent } = q.data;
+  if (lifetime.callCount === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2"><Activity size={16} /> LLM usage</CardTitle>
+          <CardDescription>Token + cost telemetry. Will populate once you run a scoring or optimization.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2"><Activity size={16} /> LLM usage</CardTitle>
+        <CardDescription>Across all Claude calls made on your behalf. Estimated cost — actual provider invoice is authoritative.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-3 rounded-md border">
+            <div className="text-xs text-muted-fg uppercase tracking-wider">Last 30 days</div>
+            <div className="text-2xl font-semibold">${last30Days.costUsd.toFixed(4)}</div>
+            <div className="text-xs text-muted-fg">{last30Days.callCount} calls · {last30Days.inTokens + last30Days.outTokens} tokens</div>
+          </div>
+          <div className="p-3 rounded-md border">
+            <div className="text-xs text-muted-fg uppercase tracking-wider">Lifetime</div>
+            <div className="text-2xl font-semibold">${lifetime.costUsd.toFixed(4)}</div>
+            <div className="text-xs text-muted-fg">{lifetime.callCount} calls</div>
+          </div>
+          {byService.slice(0, 2).map((s: any) => (
+            <div key={s.service} className="p-3 rounded-md border">
+              <div className="text-xs text-muted-fg uppercase tracking-wider">{s.service}</div>
+              <div className="text-2xl font-semibold">${s.costUsd.toFixed(4)}</div>
+              <div className="text-xs text-muted-fg">{s.callCount} calls</div>
+            </div>
+          ))}
+        </div>
+        <div>
+          <div className="text-xs text-muted-fg mb-1">Last 20 calls</div>
+          <div className="border rounded-md divide-y text-sm">
+            {recent.map((r: any, i: number) => (
+              <div key={i} className="px-3 py-1.5 flex items-center justify-between gap-3">
+                <div className="min-w-0 truncate">
+                  <span className="font-medium">{r.service}</span>
+                  {r.endpoint && <span className="text-muted-fg"> · {r.endpoint}</span>}
+                  <span className="text-xs text-muted-fg ml-2">{r.model}</span>
+                </div>
+                <div className="text-xs text-muted-fg tabular-nums shrink-0">
+                  {r.inTokens + r.outTokens} tok · ${r.costUsd.toFixed(5)} · {new Date(r.at).toLocaleTimeString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

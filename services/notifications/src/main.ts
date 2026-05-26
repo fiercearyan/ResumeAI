@@ -5,6 +5,11 @@
  * Idempotency: if a row with the same idempotencyKey exists, no email is sent
  * (handy because every caller fires-and-forgets; one duplicate doesn't spam).
  */
+import { initOtel } from './otel';
+import { initSentry } from './sentry';
+initOtel('notifications');
+initSentry('notifications');
+
 import http from 'http';
 import { PrismaClient } from '@prisma/client';
 import { render, TemplateId } from './templates';

@@ -310,6 +310,23 @@ model BillingCustomer {
   @@map("billing_customers")
 }
 
+model LlmUsage {
+  id          BigInt   @id @default(autoincrement())
+  userId      String?  @map("user_id") @db.Uuid    // null for unauthenticated calls (rare)
+  service     String                                // jd-parser | ats-engine | ai-optimizer
+  model       String                                // claude-sonnet-4-6 | claude-haiku-4-5-…
+  endpoint    String?                               // optional logical action (e.g. "extract", "rewrite_summary")
+  inTokens    Int      @map("in_tokens")
+  outTokens   Int      @map("out_tokens")
+  costUsd     Float    @map("cost_usd")
+  meta        Json?
+  at          DateTime @default(now())
+
+  @@map("llm_usage")
+  @@index([userId, at(sort: Desc)])
+  @@index([at(sort: Desc)])
+}
+
 model AuditLog {
   id           BigInt   @id @default(autoincrement())
   userId       String?  @map("user_id") @db.Uuid

@@ -97,6 +97,17 @@ services:
     ports:
       - "9100:80"
 
+  jaeger:
+    # All-in-one Jaeger: receives OTLP/HTTP at :4318, OTLP/gRPC at :4317.
+    # Trace UI at http://localhost:16686.
+    image: jaegertracing/all-in-one:1.55
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"   # UI
+      - "4318:4318"     # OTLP/HTTP
+      - "4317:4317"     # OTLP/gRPC
+
   auth:
     build:
       context: ../..
@@ -142,6 +153,8 @@ services:
       context: ../../services/resume-parser
       dockerfile: Dockerfile
     env_file: ../../.env
+    environment:
+      OTEL_SERVICE_NAME: resume-parser
     ports:
       - "8001:8001"
     volumes:
@@ -152,6 +165,8 @@ services:
       context: ../../services/jd-parser
       dockerfile: Dockerfile
     env_file: ../../.env
+    environment:
+      OTEL_SERVICE_NAME: jd-parser
     ports:
       - "8002:8002"
     volumes:
@@ -162,6 +177,8 @@ services:
       context: ../../services/ats-engine
       dockerfile: Dockerfile
     env_file: ../../.env
+    environment:
+      OTEL_SERVICE_NAME: ats-engine
     depends_on:
       redis:
         condition: service_healthy
@@ -175,6 +192,8 @@ services:
       context: ../../services/ai-optimizer
       dockerfile: Dockerfile
     env_file: ../../.env
+    environment:
+      OTEL_SERVICE_NAME: ai-optimizer
     ports:
       - "8004:8004"
     volumes:

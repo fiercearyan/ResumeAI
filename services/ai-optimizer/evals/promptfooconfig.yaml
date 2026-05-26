@@ -1,0 +1,117 @@
+# Promptfoo eval suite for the AI optimizer.
+#
+# Runs nightly + on every PR that touches services/ai-optimizer.
+# The "provider" hits the optimizer's HTTP endpoint, so the eval suite tests
+# the entire pipeline (planner → rewriter → truth-check → patcher), not just
+# raw prompts.
+
+description: ResumeAI optimizer regression suite
+
+providers:
+  - id: http
+    config:
+      url: "http://localhost:8004/optimize"
+      method: POST
+      headers:
+        Content-Type: application/json
+      body: |
+        {
+          "resume": {{ resume | dump }},
+          "jd": {{ jd | dump }},
+          "score": {{ score | default({}, true) | dump }},
+          "original_latex": {{ original_latex | default(null) | dump }}
+        }
+      transformResponse: |
+        ({
+          new_resume: data.new_resume,
+          applied: data.applied,
+          rejected: data.rejected,
+          new_latex_available: !!data.new_latex,
+          pdf_b64_len: (data.pdf_b64 || '').length
+        })
+
+# Default tests apply to every test case below unless overridden.
+defaultTest:
+  assert:
+    # Pipeline must always return a structured new_resume object.
+    - type: javascript
+      value: typeof output.new_resume === 'object' && output.new_resume !== null
+    # Always emits a PDF (base64) — render-pdf branch must not silently fail.
+    - type: javascript
+      value: output.pdf_b64_len > 1000
+    # Truth-check guardrail invariant: rejected items must carry a reason.
+    - type: javascript
+      value: |
+        (output.rejected || []).every(r => !!r._rejected_reason)
+
+tests:
+  - description: "No fabrication: rewritten bullets must contain no new proper-noun phrases"
+    vars:
+      resume:
+        profile: { name: "Test Engineer", email: "t@example.com" }
+        summary: "Engineer with 5 years building Python services."
+        experience:
+          - title: "Software Engineer"
+            company: "Acme"
+            start: "2020"
+            end: "Present"
+            bullets:
+              - "Built a Python REST API serving 1M users."
+              - "Reduced p99 latency by 40% via caching."
+        skills: ["Python", "PostgreSQL"]
+      jd:
+        title: "Backend Engineer"
+        must_haves: ["Python", "Kubernetes"]
+        responsibilities: ["Build APIs", "Operate services"]
+    assert:
+      - type: javascript
+        # Every rewritten experience bullet must only contain proper-nouns that
+        # are in the original resume.
+        value: |
+          const original = ['Acme'];
+          const allowed = new Set(['United States', 'New York', 'San Francisco', 'Computer Science']);
+          const properNounRe = /\b[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)+\b/g;
+          (output.applied || [])
+            .filter(a => a.target === 'experience_bullet')
+            .every(a => {
+              const nouns = (a.new_text || '').match(properNounRe) || [];
+              return nouns.every(n => allowed.has(n) || original.includes(n));
+            });
+
+  - description: "Skills surfacing: must-have skill already in resume body gets surfaced"
+    vars:
+      resume:
+        profile: { name: "X", email: "x@example.com" }
+        summary: "Hands-on with Kubernetes for 3 years."  # evidenced in body
+        experience: []
+        skills: ["Python"]   # but missing from skills section
+      jd:
+        title: "Platform Engineer"
+        must_haves: ["Kubernetes"]
+      score:
+        matched_skills: []
+        missing_skills: ["Kubernetes"]
+    assert:
+      - type: javascript
+        value: |
+          const skillsEdit = (output.applied || []).find(a => a.target === 'skills');
+          !!skillsEdit && (skillsEdit.new_items || []).includes('Kubernetes');
+
+  - description: "Truthful summary: rewritten summary contains no new numbers"
+    vars:
+      resume:
+        profile: { name: "Y", email: "y@example.com" }
+        summary: "Engineer with 5 years of experience."
+        experience: []
+        skills: []
+      jd:
+        title: "Engineer"
+        must_haves: []
+    assert:
+      - type: javascript
+        value: |
+          const summaryEdit = (output.applied || []).find(a => a.target === 'summary');
+          if (!summaryEdit) return true; // no rewrite — fine
+          const newNums = (summaryEdit.new_text.match(/\b\d+\b/g) || []);
+          const origNums = ['5'];
+          newNums.every(n => origNums.includes(n));

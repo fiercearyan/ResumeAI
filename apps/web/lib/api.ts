@@ -150,4 +150,7 @@ export const api = {
   startCheckout: (plan: 'pro') =>
     req<{ url: string; mock: boolean }>('/billing/checkout', { method: 'POST', body: JSON.stringify({ plan }) }),
   openBillingPortal: () => req<{ url: string; mock: boolean }>('/billing/portal', { method: 'POST' }),
+
+  // LLM usage
+  getLlmUsage: () => req<any>('/me/llm-usage'),
 };

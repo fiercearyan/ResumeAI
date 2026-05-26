@@ -113,6 +113,9 @@ async def _rewrite_summary(client: AsyncAnthropic, resume: Dict[str, Any], jd: D
         tool_choice={"type": "tool", "name": "propose_summary"},
         messages=[{"role": "user", "content": user}],
     )
+    from ..llm_usage import record, extract_usage
+    in_tok, out_tok = extract_usage(resp)
+    await record(service="ai-optimizer", model=MODEL, in_tokens=in_tok, out_tokens=out_tok, endpoint="rewrite_summary")
     for block in resp.content:
         if block.type == "tool_use" and block.name == "propose_summary":
             d = block.input
@@ -142,6 +145,9 @@ async def _rewrite_bullet(client: AsyncAnthropic, resume: Dict[str, Any], jd: Di
         tool_choice={"type": "tool", "name": "propose_bullet"},
         messages=[{"role": "user", "content": user}],
     )
+    from ..llm_usage import record, extract_usage
+    in_tok, out_tok = extract_usage(resp)
+    await record(service="ai-optimizer", model=MODEL, in_tokens=in_tok, out_tokens=out_tok, endpoint="rewrite_bullet")
     for block in resp.content:
         if block.type == "tool_use" and block.name == "propose_bullet":
             d = block.input

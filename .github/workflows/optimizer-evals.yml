@@ -1,0 +1,59 @@
+name: optimizer evals
+
+on:
+  schedule:
+    # Nightly at 03:00 UTC.
+    - cron: '0 3 * * *'
+  pull_request:
+    paths:
+      - 'services/ai-optimizer/**'
+      - '.github/workflows/optimizer-evals.yml'
+  workflow_dispatch:
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Boot data layer + ai-optimizer
+        env:
+          # In CI we run mock-only so we don't hit Anthropic. The optimizer's
+          # heuristic fallback path is exercised, which still tests the
+          # planner / patcher / truth-check / render plumbing.
+          ANTHROPIC_API_KEY: sk-ant-replace-me
+          OAUTH_MOCK: 'true'
+          STRIPE_MOCK: 'true'
+          OTEL_DISABLED: 'true'
+        run: |
+          cp .env.example .env
+          docker compose -f infra/compose/docker-compose.yml --env-file .env up -d \
+            postgres redis mongo minio mailhog minio-init ai-optimizer
+          # Wait for ai-optimizer to be ready.
+          for i in {1..40}; do
+            if curl -fsS http://localhost:8004/health >/dev/null 2>&1; then break; fi
+            sleep 3
+          done
+          curl -fsS http://localhost:8004/health
+
+      - name: Install promptfoo
+        run: npm install -g promptfoo@0.103.0
+
+      - name: Run evals
+        working-directory: services/ai-optimizer/evals
+        run: promptfoo eval --no-cache --output ../../../optimizer-eval-results.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimizer-eval-results
+          path: optimizer-eval-results.json
+
+      - name: Teardown
+        if: always()
+        run: docker compose -f infra/compose/docker-compose.yml --env-file .env down -v

@@ -15,4 +15,6 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 COPY app ./app
 
 EXPOSE 8003
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"]
+# opentelemetry-instrument auto-wires FastAPI/httpx/requests at startup.
+# Falls back to plain uvicorn when OTEL_DISABLED=true.
+CMD ["sh", "-c", "if [ \"$OTEL_DISABLED\" = \"true\" ]; then uvicorn app.main:app --host 0.0.0.0 --port 8003; else opentelemetry-instrument uvicorn app.main:app --host 0.0.0.0 --port 8003; fi"]

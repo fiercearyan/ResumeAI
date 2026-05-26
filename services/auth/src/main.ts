@@ -1,3 +1,8 @@
+import { initOtel } from './common/otel';
+import { initSentry } from './common/sentry';
+initOtel('auth');
+initSentry('auth');
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
