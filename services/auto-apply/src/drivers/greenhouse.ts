@@ -222,6 +222,13 @@ function formatForField(value: any, kind: FormField['kind']): string {
 async function scanFormFields(page: any): Promise<FormField[]> {
   // Pull a structured list out of the DOM in one round-trip.
   return page.evaluate(() => {
+    // tsx/esbuild compiles `function foo() {}` declarations to
+    // `function foo() {}; __name(foo, "foo");` for stack-trace naming.
+    // That helper exists in the Node process but not inside Playwright's
+    // browser context where this evaluate body actually runs — so we
+    // polyfill it as the very first statement.
+    (globalThis as any).__name = (globalThis as any).__name || ((fn: any) => fn);
+
     function visible(el: Element) {
       if (!el) return false;
       const r = (el as HTMLElement).getBoundingClientRect();
