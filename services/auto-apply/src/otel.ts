@@ -1,33 +1,32 @@
 /**
  * OpenTelemetry bootstrap.
  *
- * Imported once at the very top of main.ts BEFORE any other module that we
- * want auto-instrumented (Express, http, fetch, ioredis, pg, etc.).
+ * Imported at the very top of main.ts BEFORE any other module so the
+ * NodeSDK can hook into Express/http/fetch/ioredis/pg at require time.
  *
- * No-ops when OTEL_DISABLED=true. Exports OTLP/HTTP to
- * OTEL_EXPORTER_OTLP_ENDPOINT (default http://jaeger:4318 in compose).
+ * Service name comes from the OTEL_SERVICE_NAME env var (set per-service in
+ * docker-compose). Set OTEL_DISABLED=true to skip entirely. Exports OTLP/HTTP
+ * to OTEL_EXPORTER_OTLP_ENDPOINT (default http://jaeger:4318).
  */
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { resourceFromAttributes } from '@opentelemetry/resources';
-import {
-  ATTR_SERVICE_NAME,
-  ATTR_SERVICE_VERSION,
-} from '@opentelemetry/semantic-conventions';
 
 export function initOtel(serviceName: string) {
   if (process.env.OTEL_DISABLED === 'true') return;
+  // Setting OTEL_SERVICE_NAME on the process tells the SDK to tag every span
+  // with this service name — works across every minor SDK version, no
+  // dependence on the resource-builder helper whose name varied across
+  // versions of @opentelemetry/resources.
+  if (!process.env.OTEL_SERVICE_NAME) {
+    process.env.OTEL_SERVICE_NAME = serviceName;
+  }
   const endpoint =
     process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
     process.env.OTEL_EXPORTER_OTLP_ENDPOINT ||
     'http://jaeger:4318';
 
   const sdk = new NodeSDK({
-    resource: resourceFromAttributes({
-      [ATTR_SERVICE_NAME]: serviceName,
-      [ATTR_SERVICE_VERSION]: process.env.SERVICE_VERSION || '0.4.0',
-    }),
     traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
     instrumentations: [
       getNodeAutoInstrumentations({
